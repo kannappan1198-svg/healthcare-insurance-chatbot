@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HealthClaim AI — Insurance Report Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0b0f1a;
+    --panel:       #111827;
+    --card:        #1a2235;
+    --border:      #1e2d45;
+    --accent:      #00d4aa;
+    --accent2:     #3b82f6;
+    --danger:      #f43f5e;
+    --warn:        #f59e0b;
+    --text:        #e2e8f0;
+    --muted:       #64748b;
+    --user-bubble: #1e3a5f;
+    --bot-bubble:  #162130;
+    --font-head:   'DM Serif Display', serif;
+    --font-body:   'Outfit', sans-serif;
+    --font-mono:   'DM Mono', monospace;
+    --radius:      12px;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────── */
+  header {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 2rem;
+    background: rgba(17,24,39,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo { display: flex; align-items: center; gap: 0.75rem; }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    box-shadow: 0 0 20px rgba(0,212,170,0.3);
+  }
+  .logo-text h1 { font-family: var(--font-head); font-size: 1.3rem; line-height: 1; }
+  .logo-text span { font-size: 0.7rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 500; }
+  .header-badges { display: flex; gap: 0.5rem; align-items: center; }
+  .badge { padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+  .badge-green { background: rgba(0,212,170,0.15); color: var(--accent); border: 1px solid rgba(0,212,170,0.3); }
+  .badge-blue  { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+
+  /* ── LAYOUT ─────────────────────────────────────────── */
+  .main {
+    position: relative; z-index: 1;
+    display: flex; flex: 1;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ─────────────────────────────────────────── */
+  .sidebar {
+    width: 240px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 1.25rem 0;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .sidebar::-webkit-scrollbar { width: 3px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .sidebar-section { padding: 0 1rem 1.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+  .sidebar-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; margin-bottom: 0.75rem; padding: 0 0.25rem; }
+
+  .quick-btn {
+    width: 100%; background: transparent; border: 1px solid var(--border);
+    color: var(--text); font-family: var(--font-body); font-size: 0.78rem;
+    padding: 0.55rem 0.75rem; border-radius: 8px; cursor: pointer;
+    text-align: left; margin-bottom: 0.4rem; transition: all 0.2s;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .quick-btn:hover { background: rgba(0,212,170,0.08); border-color: rgba(0,212,170,0.4); color: var(--accent); transform: translateX(3px); }
+  .quick-btn .qicon { font-size: 0.9rem; }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 0 1rem; }
+  .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem; text-align: center; }
+  .stat-box .val { font-size: 1.1rem; font-weight: 600; color: var(--accent); font-family: var(--font-mono); }
+  .stat-box .lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* ── CHAT AREA ───────────────────────────────────────── */
+  .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .messages {
+    flex: 1; overflow-y: auto; padding: 1.5rem;
+    display: flex; flex-direction: column; gap: 1.25rem;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── WELCOME ─────────────────────────────────────────── */
+  .welcome {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 2rem; text-align: center;
+    animation: fadeUp 0.5s ease;
+  }
+  .welcome h2 { font-family: var(--font-head); font-size: 1.6rem; margin-bottom: 0.5rem; }
+  .welcome h2 span { color: var(--accent); }
+  .welcome p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; max-width: 480px; margin: 0 auto 1.25rem; }
+  .example-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+  .chip {
+    background: rgba(0,212,170,0.08); border: 1px solid rgba(0,212,170,0.25);
+    color: var(--accent); font-size: 0.75rem; padding: 0.35rem 0.75rem;
+    border-radius: 99px; cursor: pointer; transition: all 0.2s; font-family: var(--font-body);
+  }
+  .chip:hover { background: rgba(0,212,170,0.18); transform: translateY(-1px); }
+
+  /* ── BUBBLES ─────────────────────────────────────────── */
+  .msg { display: flex; gap: 0.75rem; animation: fadeUp 0.3s ease; }
+  .msg.user { flex-direction: row-reverse; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; margin-top: 2px; }
+  .avatar.bot  { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .avatar.user { background: var(--user-bubble); border: 1px solid rgba(59,130,246,0.4); }
+  .bubble { max-width: 80%; background: var(--bot-bubble); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; font-size: 0.875rem; line-height: 1.6; }
+  .msg.user .bubble { background: var(--user-bubble); border-color: rgba(59,130,246,0.3); }
+
+  /* ── SUMMARY CARDS ───────────────────────────────────── */
+  .summary-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.6rem; margin-top: 0.75rem;
+  }
+  .sum-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.75rem;
+    animation: fadeUp 0.4s ease;
+  }
+  .sum-card .sc-label { font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.3rem; }
+  .sum-card .sc-value { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 600; color: var(--accent); }
+  .sum-card .sc-sub   { font-size: 0.65rem; color: var(--muted); margin-top: 0.15rem; }
+
+  /* ── SQL BLOCK ───────────────────────────────────────── */
+  .sql-block { margin-top: 0.75rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .sql-header { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.75rem; background: rgba(0,212,170,0.06); border-bottom: 1px solid var(--border); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
+  .sql-block pre { padding: 0.75rem; font-family: var(--font-mono); font-size: 0.72rem; color: #7dd3fc; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+
+  /* ── REPORT TABLE ────────────────────────────────────── */
+  .report-wrap { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .report-header { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.85rem; background: rgba(59,130,246,0.08); border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 0.4rem; }
+  .report-header span { font-size: 0.7rem; color: #60a5fa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+  .report-actions { display: flex; gap: 0.4rem; }
+
+  .action-btn {
+    background: rgba(0,212,170,0.12); border: 1px solid rgba(0,212,170,0.3);
+    color: var(--accent); font-size: 0.68rem; padding: 0.25rem 0.65rem;
+    border-radius: 6px; cursor: pointer; font-family: var(--font-body);
+    font-weight: 600; transition: all 0.2s;
+  }
+  .action-btn:hover { background: rgba(0,212,170,0.25); }
+  .action-btn.chart-btn { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.3); color: #60a5fa; }
+  .action-btn.chart-btn:hover { background: rgba(59,130,246,0.25); }
+  .action-btn.excel-btn { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); color: #4ade80; }
+  .action-btn.excel-btn:hover { background: rgba(34,197,94,0.25); }
+
+  .table-scroll { overflow-x: auto; max-height: 260px; overflow-y: auto; }
+  .table-scroll::-webkit-scrollbar { height: 4px; width: 4px; }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+  thead th { background: var(--card); padding: 0.55rem 0.75rem; text-align: left; font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; }
+  tbody tr { border-bottom: 1px solid rgba(30,45,69,0.6); transition: background 0.15s; }
+  tbody tr:hover { background: rgba(0,212,170,0.04); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 0.5rem 0.75rem; color: var(--text); white-space: nowrap; }
+
+  .tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 99px; font-size: 0.65rem; font-weight: 600; }
+  .tag-green  { background: rgba(0,212,170,0.15);  color: var(--accent); }
+  .tag-red    { background: rgba(244,63,94,0.15);   color: #fb7185; }
+  .tag-yellow { background: rgba(245,158,11,0.15);  color: var(--warn); }
+  .tag-blue   { background: rgba(59,130,246,0.15);  color: #60a5fa; }
+  .tag-gray   { background: rgba(100,116,139,0.15); color: var(--muted); }
+
+  /* ── CHART AREA ──────────────────────────────────────── */
+  .chart-wrap {
+    margin-top: 0.75rem; padding: 1rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; display: none;
+  }
+  .chart-wrap.visible { display: block; animation: fadeUp 0.3s ease; }
+  .chart-toolbar { display: flex; gap: 0.4rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .chart-type-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); font-size: 0.7rem; padding: 0.25rem 0.6rem;
+    border-radius: 6px; cursor: pointer; font-family: var(--font-body);
+    transition: all 0.2s;
+  }
+  .chart-type-btn.active { background: rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.5); color: #60a5fa; }
+  .chart-container { position: relative; height: 220px; }
+
+  /* ── TYPING ──────────────────────────────────────────── */
+  .typing { display: flex; gap: 4px; align-items: center; padding: 0.4rem 0; }
+  .typing span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: bounce 1.2s infinite; opacity: 0.7; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+  /* ── INPUT ───────────────────────────────────────────── */
+  .input-area {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: rgba(17,24,39,0.95);
+    backdrop-filter: blur(12px);
+  }
+  .input-row {
+    display: flex; gap: 0.75rem; align-items: flex-end;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0.6rem 0.75rem; transition: border-color 0.2s;
+  }
+  .input-row:focus-within { border-color: rgba(0,212,170,0.5); }
+  #promptInput {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--font-body); font-size: 0.9rem;
+    resize: none; min-height: 24px; max-height: 120px; line-height: 1.5;
+  }
+  #promptInput::placeholder { color: var(--muted); }
+  .send-btn {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0; transition: all 0.2s;
+    box-shadow: 0 0 12px rgba(0,212,170,0.3);
+  }
+  .send-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(0,212,170,0.5); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .input-hint { font-size: 0.68rem; color: var(--muted); margin-top: 0.5rem; text-align: center; }
+
+  /* ── RIGHT PANEL ─────────────────────────────────────── */
+  .right-panel { width: 220px; background: var(--panel); border-left: 1px solid var(--border); padding: 1.25rem 1rem; flex-shrink: 0; overflow-y: auto; }
+  .right-panel::-webkit-scrollbar { width: 3px; }
+  .right-panel::-webkit-scrollbar-thumb { background: var(--border); }
+  .rp-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; margin-bottom: 0.75rem; }
+  .history-item { padding: 0.5rem 0.6rem; border-radius: 6px; font-size: 0.75rem; color: var(--muted); border: 1px solid transparent; margin-bottom: 0.35rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-item:hover { background: var(--card); border-color: var(--border); color: var(--text); }
+
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0);} 40%{transform:translateY(-6px);} }
+  .error-msg { color: #fb7185; font-size: 0.82rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🏥</div>
+    <div class="logo-text">
+      <h1>HealthClaim <em>AI</em></h1>
+      <span>Insurance Report Assistant</span>
+    </div>
+  </div>
+  <div class="header-badges">
+    <div class="badge badge-green">● Live</div>
+    <div class="badge badge-blue">Llama 3.3 · Groq</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quick Reports</div>
+      <button class="quick-btn" onclick="sendQuick('give me claim report')"><span class="qicon">📋</span> Claim Report</button>
+      <button class="quick-btn" onclick="sendQuick('show all rejected claims with insured name and hospital')"><span class="qicon">❌</span> Rejected Claims</button>
+      <button class="quick-btn" onclick="sendQuick('give me payment report with insured name and paid amount')"><span class="qicon">💳</span> Payment Report</button>
+      <button class="quick-btn" onclick="sendQuick('list all high fraud indicator claims with insured name')"><span class="qicon">🚨</span> Fraud Report</button>
+      <button class="quick-btn" onclick="sendQuick('show hospital report with network tier and city')"><span class="qicon">🏨</span> Hospital Report</button>
+      <button class="quick-btn" onclick="sendQuick('give me vendor report with claim count')"><span class="qicon">🏢</span> Vendor Report</button>
+      <button class="quick-btn" onclick="sendQuick('show all pending payments with insured name')"><span class="qicon">⏳</span> Pending Payments</button>
+      <button class="quick-btn" onclick="sendQuick('give me treatment report with claim number and cost')"><span class="qicon">💊</span> Treatment Report</button>
+    </div>
+    <div style="padding:0 1rem;">
+      <div class="sidebar-label" style="margin-bottom:0.75rem">DB Summary</div>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="val">10</div><div class="lbl">Claims</div></div>
+        <div class="stat-box"><div class="val">8</div><div class="lbl">Insured</div></div>
+        <div class="stat-box"><div class="val">8</div><div class="lbl">Hospitals</div></div>
+        <div class="stat-box"><div class="val">10</div><div class="lbl">Tables</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CHAT -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcomeCard">
+        <h2>Welcome to <span>HealthClaim AI</span></h2>
+        <p>Ask me anything about your healthcare insurance data. I'll convert your question into SQL and return a live report with charts and summary instantly.</p>
+        <div class="example-chips">
+          <button class="chip" onclick="sendQuick('show all approved claims with rate applied percentage')">Approved claims with rate %</button>
+          <button class="chip" onclick="sendQuick('give me insured report with policy details')">Insured + policy details</button>
+          <button class="chip" onclick="sendQuick('list claims under investigation with fraud indicator')">Claims under investigation</button>
+          <button class="chip" onclick="sendQuick('show top hospitals by claim count')">Top hospitals by claims</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="promptInput"
+          placeholder="Ask anything... e.g. 'Show rejected claims with hospital name'"
+          rows="1"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">➤</button>
+      </div>
+      <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+    <div class="rp-title">Query History</div>
+    <div id="historyList"></div>
+  </aside>
+
+</div>
+
+<script>
+  const API_URL = "http://localhost:8000/report";
+  let queryHistory = [];
+  let chartInstances = {};
+
+  function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+  function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+  function sendQuick(p) { document.getElementById('promptInput').value=p; sendMessage(); }
+  function scrollToBottom() { const m=document.getElementById('messages'); m.scrollTop=m.scrollHeight; }
+
+  // ── SUMMARY CARDS ───────────────────────────────────────
+  function buildSummaryCards(columns, data) {
+    if (!data || data.length === 0) return '';
+
+    const numCols = columns.filter(c => {
+      const val = data[0][c];
+      return typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val) && val !== null && val !== '');
+    });
+
+    const cards = [];
+
+    // Always show row count
+    cards.push({ label: 'Total Records', value: data.length, sub: 'rows returned' });
+
+    // Sum numeric columns
+    numCols.slice(0, 3).forEach(col => {
+      const sum = data.reduce((a, r) => a + (parseFloat(r[col]) || 0), 0);
+      const avg = sum / data.length;
+      const label = col.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());
+      if (sum > 0) {
+        cards.push({
+          label: 'Total ' + label,
+          value: sum >= 1000 ? '₹' + (sum/1000).toFixed(1)+'K' : sum.toFixed(0),
+          sub: 'avg: ' + (avg >= 1000 ? '₹'+(avg/1000).toFixed(1)+'K' : avg.toFixed(1))
+        });
+      }
+    });
+
+    // Count unique values for key columns
+    const catCols = ['claim_status','payment_status','fraud_indicator','is_valid_claim','plan_type'];
+    catCols.forEach(col => {
+      if (columns.includes(col)) {
+        const unique = [...new Set(data.map(r => r[col]).filter(Boolean))];
+        cards.push({ label: col.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase()), value: unique.length, sub: unique.slice(0,2).join(', ') });
+      }
+    });
+
+    if (cards.length === 0) return '';
+
+    return `<div class="summary-cards">${
+      cards.slice(0,4).map(c => `
+        <div class="sum-card">
+          <div class="sc-label">${c.label}</div>
+          <div class="sc-value">${c.value}</div>
+          <div class="sc-sub">${c.sub}</div>
+        </div>`).join('')
+    }</div>`;
+  }
+
+  // ── CHART BUILDER ────────────────────────────────────────
+  function buildChart(chartId, columns, data, chartType = 'bar') {
+    const canvas = document.getElementById(chartId);
+    if (!canvas) return;
+
+    if (chartInstances[chartId]) {
+      chartInstances[chartId].destroy();
+    }
+
+    // Find best label column (text) and value column (number)
+    const textCols = columns.filter(c => typeof data[0][c] === 'string' || isNaN(parseFloat(data[0][c])));
+    const numCols  = columns.filter(c => !isNaN(parseFloat(data[0][c])) && data[0][c] !== null && data[0][c] !== '');
+
+    if (textCols.length === 0 || numCols.length === 0) {
+      canvas.parentElement.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;text-align:center;padding:1rem;">Chart not available for this data type.</p>';
+      return;
+    }
+
+    const labelCol = textCols[0];
+    const valueCol = numCols[0];
+
+    const labels = data.slice(0,12).map(r => String(r[labelCol]).slice(0,18));
+    const values = data.slice(0,12).map(r => parseFloat(r[valueCol]) || 0);
+
+    const colors = [
+      'rgba(0,212,170,0.8)','rgba(59,130,246,0.8)','rgba(245,158,11,0.8)',
+      'rgba(244,63,94,0.8)','rgba(168,85,247,0.8)','rgba(20,184,166,0.8)',
+      'rgba(249,115,22,0.8)','rgba(34,197,94,0.8)','rgba(99,102,241,0.8)',
+      'rgba(236,72,153,0.8)','rgba(14,165,233,0.8)','rgba(234,179,8,0.8)',
+    ];
+
+    chartInstances[chartId] = new Chart(canvas, {
+      type: chartType,
+      data: {
+        labels,
+        datasets: [{
+          label: valueCol.replace(/_/g,' '),
+          data: values,
+          backgroundColor: chartType === 'pie' || chartType === 'doughnut' ? colors : colors[0],
+          borderColor: chartType === 'pie' || chartType === 'doughnut' ? colors.map(c=>c.replace('0.8','1')) : 'rgba(0,212,170,1)',
+          borderWidth: chartType === 'line' ? 2 : 1,
+          fill: chartType === 'line',
+          tension: 0.4,
+          pointBackgroundColor: 'rgba(0,212,170,1)',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { family: 'Outfit', size: 11 } } }
+        },
+        scales: chartType === 'pie' || chartType === 'doughnut' ? {} : {
+          x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(30,45,69,0.5)' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(30,45,69,0.5)' } }
+        }
+      }
+    });
+  }
+
+  // ── CHART SECTION HTML ───────────────────────────────────
+  function buildChartSection(chartId, columns, data) {
+    return `
+      <div class="chart-wrap" id="wrap_${chartId}">
+        <div class="chart-toolbar">
+          <button class="chart-type-btn active" onclick="switchChart('${chartId}','bar',this,${JSON.stringify(columns)},${JSON.stringify(data)})">📊 Bar</button>
+          <button class="chart-type-btn" onclick="switchChart('${chartId}','line',this,${JSON.stringify(columns)},${JSON.stringify(data)})">📈 Line</button>
+          <button class="chart-type-btn" onclick="switchChart('${chartId}','pie',this,${JSON.stringify(columns)},${JSON.stringify(data)})">🥧 Pie</button>
+          <button class="chart-type-btn" onclick="switchChart('${chartId}','doughnut',this,${JSON.stringify(columns)},${JSON.stringify(data)})">🍩 Donut</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="${chartId}"></canvas>
+        </div>
+      </div>`;
+  }
+
+  function switchChart(chartId, type, btn, columns, data) {
+    document.querySelectorAll(`#wrap_${chartId} .chart-type-btn`).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    buildChart(chartId, columns, data, type);
+  }
+
+  // ── STATUS COLOR TAGS ────────────────────────────────────
+  function colorTag(val) {
+    if (!val) return val ?? '—';
+    const s = String(val).toLowerCase();
+    if (['approved','active','processed','yes','low'].includes(s))     return `<span class="tag tag-green">${val}</span>`;
+    if (['rejected','failed','no','high','lapsed','cancelled'].includes(s)) return `<span class="tag tag-red">${val}</span>`;
+    if (['under review','pending','medium','under investigation','partial','partially approved'].includes(s)) return `<span class="tag tag-yellow">${val}</span>`;
+    if (['cashless','reimbursement','submitted'].includes(s))           return `<span class="tag tag-blue">${val}</span>`;
+    return val;
+  }
+
+  // ── TABLE BUILDER ────────────────────────────────────────
+  function buildTable(columns, data, prompt, msgIndex) {
+    if (!data || data.length === 0)
+      return `<p style="color:var(--muted);font-size:0.8rem;margin-top:0.5rem;">No records found.</p>`;
+
+    const statusCols = ['claim_status','payment_status','status','is_valid_claim','fraud_indicator','empanelment_status','is_covered'];
+    const chartId    = `chart_${msgIndex}`;
+
+    let tableHTML = `
+      <div class="report-wrap">
+        <div class="report-header">
+          <span>📊 ${data.length} row${data.length!==1?'s':''} returned</span>
+          <div class="report-actions">
+            <button class="action-btn chart-btn" onclick="toggleChart('wrap_${chartId}',this)">📈 Chart</button>
+            <button class="action-btn" onclick="downloadCSV(${JSON.stringify(columns)},${JSON.stringify(data)},'${prompt.replace(/'/g,'')}')">⬇ CSV</button>
+            <button class="action-btn excel-btn" onclick="downloadExcel(${JSON.stringify(columns)},${JSON.stringify(data)},'${prompt.replace(/'/g,'')}')">📗 Excel</button>
+          </div>
+        </div>
+        <div class="table-scroll"><table>
+          <thead><tr>${columns.map(c=>`<th>${c.replace(/_/g,' ').toUpperCase()}</th>`).join('')}</tr></thead>
+          <tbody>${data.map(row=>`<tr>${columns.map(c=>{
+            const val = row[c];
+            const display = statusCols.includes(c) ? colorTag(val) : (val!==null&&val!==undefined?val:'—');
+            return `<td>${display}</td>`;
+          }).join('')}</tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
+
+    tableHTML += buildChartSection(chartId, columns, data);
+    return tableHTML;
+  }
+
+  function toggleChart(wrapId, btn) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    const visible = wrap.classList.toggle('visible');
+    btn.textContent = visible ? '📈 Hide Chart' : '📈 Chart';
+    if (visible) {
+      const chartId = wrapId.replace('wrap_','');
+      const canvas  = document.getElementById(chartId);
+      if (canvas && !chartInstances[chartId]) {
+        const cols = JSON.parse(canvas.closest('.chart-wrap').dataset.cols || '[]');
+        const dat  = JSON.parse(canvas.closest('.chart-wrap').dataset.dat  || '[]');
+        buildChart(chartId, cols, dat, 'bar');
+      }
+      setTimeout(() => {
+        const chartId = wrapId.replace('wrap_','');
+        if (!chartInstances[chartId]) {
+          const wrap = document.getElementById(wrapId);
+          const btns = wrap ? wrap.querySelectorAll('.chart-type-btn') : [];
+          if (btns.length) btns[0].click();
+        }
+      }, 50);
+    }
+  }
+
+  // ── DOWNLOAD CSV ─────────────────────────────────────────
+  function downloadCSV(columns, data, filename) {
+    let csv = columns.join(',') + '\n';
+    data.forEach(row => { csv += columns.map(c=>`"${row[c]??''}"`).join(',') + '\n'; });
+    const blob = new Blob([csv],{type:'text/csv'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href=url; a.download=(filename||'report')+'.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── DOWNLOAD EXCEL ────────────────────────────────────────
+  function downloadExcel(columns, data, filename) {
+    const wsData = [columns, ...data.map(row => columns.map(c => row[c] ?? ''))];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Style header row width
+    ws['!cols'] = columns.map(() => ({ wch: 20 }));
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Report');
+    XLSX.writeFile(wb, (filename || 'report') + '.xlsx');
+  }
+
+  // ── HISTORY ───────────────────────────────────────────────
+  function updateHistory(prompt) {
+    queryHistory.unshift(prompt);
+    if (queryHistory.length > 15) queryHistory.pop();
+    document.getElementById('historyList').innerHTML = queryHistory.map(q => `
+      <div class="history-item" onclick="sendQuick('${q.replace(/'/g,"\\'")}')">
+        ${q}
+      </div>`).join('');
+  }
+
+  // ── MESSAGE HELPERS ───────────────────────────────────────
+  function addMessage(role, content) {
+    const welcome = document.getElementById('welcomeCard');
+    if (welcome) welcome.remove();
+    const msgs = document.getElementById('messages');
+    const div  = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = `<div class="avatar ${role}">${role==='user'?'👤':'🤖'}</div><div class="bubble">${content}</div>`;
+    msgs.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function addTyping() {
+    const msgs = document.getElementById('messages');
+    const div  = document.createElement('div');
+    div.className='msg bot'; div.id='typingIndicator';
+    div.innerHTML=`<div class="avatar bot">🤖</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+    msgs.appendChild(div); scrollToBottom();
+  }
+
+  function removeTyping() { const t=document.getElementById('typingIndicator'); if(t)t.remove(); }
+
+  // ── MAIN SEND ─────────────────────────────────────────────
+  let msgIndex = 0;
+
+  async function sendMessage() {
+    const input   = document.getElementById('promptInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const prompt  = input.value.trim();
+    if (!prompt) return;
+
+    addMessage('user', prompt);
+    input.value=''; input.style.height='auto';
+    sendBtn.disabled=true;
+    addTyping();
+    updateHistory(prompt);
+    msgIndex++;
+
+    try {
+      const res  = await fetch(API_URL, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({prompt})
+      });
+      const data = await res.json();
+      removeTyping();
+
+      if (data.success && data.row_count > 0) {
+        // ── SUCCESS WITH DATA ──────────────────────────────
+        const retryBadge  = data.retried ? `<span style="font-size:0.7rem;color:var(--warn);margin-left:0.5rem;">⚡ Auto-corrected</span>` : '';
+        const summaryHTML = buildSummaryCards(data.columns, data.data);
+        const tableHTML   = buildTable(data.columns, data.data, prompt, msgIndex);
+        const sqlHTML = `
+          <div class="sql-block">
+            <div class="sql-header">
+              <span>⚡ Generated SQL ${retryBadge}</span>
+              <span>${data.row_count} rows</span>
+            </div>
+            <pre>${data.sql}</pre>
+          </div>`;
+
+        addMessage('bot', `Here is your report for <strong>"${prompt}"</strong>${summaryHTML}${sqlHTML}${tableHTML}`);
+
+        setTimeout(() => {
+          const chartId = `chart_${msgIndex}`;
+          const wrap    = document.getElementById(`wrap_${chartId}`);
+          if (wrap) {
+            wrap.dataset.cols = JSON.stringify(data.columns);
+            wrap.dataset.dat  = JSON.stringify(data.data);
+          }
+        }, 100);
+
+      } else if (data.success && data.row_count === 0) {
+        // ── SUCCESS BUT NO ROWS ────────────────────────────
+        const sqlHTML = `
+          <div class="sql-block">
+            <div class="sql-header"><span>⚡ Generated SQL</span><span>0 rows</span></div>
+            <pre>${data.sql}</pre>
+          </div>`;
+        addMessage('bot', `
+          ${sqlHTML}
+          <div style="margin-top:0.75rem;padding:0.75rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;">
+            <span style="color:var(--warn);">⚠️ No Records Found</span><br/>
+            <span style="font-size:0.8rem;color:var(--muted);">
+              ${data.friendly_error || `No data matched your query. Try a broader question like "give me claim report".`}
+            </span>
+          </div>`);
+
+      } else {
+        // ── ERROR ──────────────────────────────────────────
+        const friendlyMsg = data.friendly_error || data.error || 'Something went wrong. Please try again.';
+        const isIrrelevant = friendlyMsg.includes('healthcare insurance data');
+        const isTooShort   = friendlyMsg.includes('more detailed');
+
+        let icon    = '❌';
+        let color   = 'rgba(244,63,94,0.08)';
+        let border  = 'rgba(244,63,94,0.25)';
+        let txtColor= '#fb7185';
+        let tip     = '';
+
+        if (isIrrelevant) {
+          icon='🏥'; color='rgba(59,130,246,0.08)'; border='rgba(59,130,246,0.25)'; txtColor='#60a5fa';
+          tip = `<br/><span style="font-size:0.75rem;color:var(--muted);">
+            Try: "give me claim report" or "show rejected claims"
+          </span>`;
+        } else if (isTooShort) {
+          icon='💬'; color='rgba(245,158,11,0.08)'; border='rgba(245,158,11,0.25)'; txtColor='var(--warn)';
+          tip = `<br/><span style="font-size:0.75rem;color:var(--muted);">
+            Example: "Show all approved claims with hospital name"
+          </span>`;
+        } else {
+          tip = data.sql ? `<div class="sql-block" style="margin-top:0.5rem;">
+            <div class="sql-header"><span>⚡ Failed SQL</span></div>
+            <pre>${data.sql}</pre></div>` : '';
+        }
+
+        addMessage('bot', `
+          <div style="padding:0.75rem;background:${color};border:1px solid ${border};border-radius:8px;">
+            <span style="color:${txtColor};">${icon} ${friendlyMsg}</span>${tip}
+          </div>`);
+      }
+    } catch(err) {
+      removeTyping();
+      addMessage('bot', `<span class="error-msg">❌ Cannot connect to backend.<br/><small>Make sure you ran: <code>uvicorn app:app --reload</code></small></span>`);
+    }
+
+    sendBtn.disabled=false;
+    scrollToBottom();
+  }
+</script>
+</body>
+</html>
