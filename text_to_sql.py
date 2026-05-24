@@ -26,13 +26,13 @@ api_key = os.getenv("GROQ_API_KEY")
 if not api_key:
     raise ValueError("GROQ_API_KEY not found! Check your .env file.")
 
-print(f"✅ Groq API Key loaded: {api_key[:8]}{'*' * 20}")
+print(f" Groq API Key loaded: {api_key[:8]}{'*' * 20}")
 
 client = Groq(api_key=api_key)
-print("✅ Groq client ready!")
+print(" Groq client ready!")
 
 DB_PATH = os.getenv("DB_PATH", "healthcare_insurance.db")
-print(f"✅ Database path: {DB_PATH}")
+print(f" Database path: {DB_PATH}")
 
 
 # ── VALID TABLES ──────────────────────────────────────────────
@@ -413,7 +413,7 @@ def generate_report(user_prompt: str) -> dict:
 
     # ── STEP 6: Handle empty results ─────────────────────────
     if result["success"] and result["row_count"] == 0:
-        print(f"[STATUS]        : ✅ Query ran but 0 rows returned")
+        print(f"[STATUS]        :  Query ran but 0 rows returned")
         result["friendly_error"] = (
             f"⚠️ No records found for '{user_prompt}'.\n\n"
             f"The query ran successfully but returned no data. "
@@ -421,7 +421,7 @@ def generate_report(user_prompt: str) -> dict:
         )
         return result
 
-    print(f"[STATUS]        : ✅ Success — {result['row_count']} rows returned")
+    print(f"[STATUS]        :  Success — {result['row_count']} rows returned")
     return result
 
 
@@ -430,7 +430,7 @@ def generate_report(user_prompt: str) -> dict:
 # ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     test_prompts = [
-        # ✅ Valid prompts
+        #  Valid prompts
         "give me claim report",
         "show all rejected claims with insured name and hospital name",
         "list all high fraud indicator claims with insured name",
